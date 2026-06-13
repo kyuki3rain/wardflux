@@ -54,14 +54,15 @@ pnpm sim -- --games 400 --funds 12 --winline 25 --csv   # CSV を sim-out/ へ
 
 ## デプロイ
 
-- **web** → GitHub Pages（`.github/workflows/deploy.yml`）
-  - Settings > Pages > Source = GitHub Actions
-  - リポジトリ変数 `VITE_PARTYKIT_HOST` にデプロイ済み PartyKit ホストを設定
-- **server** → PartyKit
+公開URL: https://kyuki3rain.github.io/wardflux/ （PartyKit: `wardflux.kyuki3rain.partykit.dev`）
+
+- **server** → PartyKit（手動）
   ```bash
   pnpm deploy:server          # 初回は partykit login が必要
   ```
-  CI で自動化する場合はシークレット `PARTYKIT_TOKEN` を設定。
+- **web** → GitHub Pages（`main` への push で `.github/workflows/deploy.yml` が自動デプロイ）
+  - Settings > Pages > Source = GitHub Actions
+  - 接続先ホストはワークフロー内 `VITE_PARTYKIT_HOST` に直書き
 
 ## デッキの共有
 

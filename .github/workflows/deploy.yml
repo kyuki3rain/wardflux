@@ -1,9 +1,7 @@
-# web を GitHub Pages へ、PartyKit サーバを partykit へデプロイする。
-# 事前に以下を設定:
-#   - Settings > Pages > Source = GitHub Actions
-#   - Variables: VITE_PARTYKIT_HOST = wardflux.<your-user>.partykit.dev
-#   - Secrets:   PARTYKIT_TOKEN     = partykit のデプロイトークン（任意・サーバ自動デプロイ時）
-name: deploy
+# web を GitHub Pages へデプロイする。
+# PartyKit サーバは `pnpm deploy:server` で手動デプロイ（host は下記 VITE_PARTYKIT_HOST）。
+# Settings > Pages > Source = GitHub Actions にしておくこと。
+name: Deploy
 
 on:
   push:
@@ -16,12 +14,16 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: true
 
 jobs:
-  test:
+  build-deploy:
+    name: Build & Deploy GitHub Pages
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -31,53 +33,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @wardflux/core test
-      - run: pnpm -r typecheck
-
-  build-web:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Build web
+      - name: Build
         env:
-          VITE_PARTYKIT_HOST: ${{ vars.VITE_PARTYKIT_HOST }}
-          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_PARTYKIT_HOST: wardflux.kyuki3rain.partykit.dev
+          VITE_BASE: /wardflux/
         run: pnpm --filter @wardflux/web build
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: packages/web/dist
-
-  deploy-pages:
-    needs: build-web
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - id: deploy
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
-
-  deploy-partykit:
-    needs: test
-    runs-on: ubuntu-latest
-    if: ${{ env.HAS_TOKEN == 'true' }}
-    env:
-      HAS_TOKEN: ${{ secrets.PARTYKIT_TOKEN != '' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Deploy PartyKit
-        env:
-          PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
-        run: pnpm --filter @wardflux/server exec partykit deploy
