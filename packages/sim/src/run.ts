@@ -3,10 +3,12 @@
 //   pnpm sim -- --games 1000 --deck1 builtin-balanced --deck2 builtin-aggro --csv
 import { writeFileSync, mkdirSync } from "node:fs";
 import {
+  type Bot,
   type Command,
   type GameState,
   BUILTIN_DECKS,
   createRng,
+  getBot,
   getBuiltinDeck,
   legalCommands,
   initGame,
@@ -14,7 +16,6 @@ import {
   reduce,
   toPlayerView,
 } from "@wardflux/core";
-import { type Bot, getBot } from "./bots.js";
 
 type Args = {
   games: number;

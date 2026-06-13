@@ -17,6 +17,10 @@ concurrency:
   group: deploy
   cancel-in-progress: true
 
+# actions 本体も Node 24 で動かす（Node 20 廃止予定への対応）
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-deploy:
     name: Build & Deploy GitHub Pages
@@ -29,7 +33,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @wardflux/core test

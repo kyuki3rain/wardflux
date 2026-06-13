@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useStore } from "./store.js";
 import { HomeScreen } from "./screens/HomeScreen.js";
 import { DeckBuilderScreen } from "./screens/DeckBuilderScreen.js";
+import { CpuSetupScreen } from "./screens/CpuSetupScreen.js";
 import { LobbyScreen } from "./screens/LobbyScreen.js";
 import { GameScreen } from "./screens/GameScreen.js";
 
@@ -20,6 +21,7 @@ export function App() {
     <div className="min-h-screen">
       {screen === "home" && <HomeScreen />}
       {screen === "deckbuilder" && <DeckBuilderScreen />}
+      {screen === "cpusetup" && <CpuSetupScreen />}
       {screen === "lobby" && <LobbyScreen />}
       {screen === "game" && <GameScreen />}
 

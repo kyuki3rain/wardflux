@@ -12,4 +12,5 @@ export * from "./setup.js";
 export * from "./engine.js";
 export * from "./legal.js";
 export * from "./view.js";
+export * from "./bots.js";
 export { evaluateGameOver } from "./rules/win.js";

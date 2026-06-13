@@ -44,10 +44,20 @@ export function HomeScreen() {
 
       <div className="flex flex-col gap-3">
         <button
+          className="rounded bg-teal-600 px-4 py-3 font-bold hover:bg-teal-500"
+          onClick={() => {
+            setPlayerName((name || "プレイヤー").trim());
+            setScreen("cpusetup");
+          }}
+        >
+          CPU対戦（1人で遊ぶ）
+        </button>
+
+        <button
           className="rounded bg-emerald-600 px-4 py-3 font-bold hover:bg-emerald-500"
           onClick={() => go(randomRoomCode())}
         >
-          ルームを作成
+          ルームを作成（オンライン対戦）
         </button>
 
         <div className="flex gap-2">

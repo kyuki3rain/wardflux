@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { getBot } from "../src/bots.js";
 import { BUILTIN_DECKS } from "../src/decks.js";
 import { reduce } from "../src/engine.js";
 import { legalCommands } from "../src/legal.js";
 import { createRng, nextInt } from "../src/rng.js";
 import { initGame } from "../src/setup.js";
+import { toPlayerView } from "../src/view.js";
 
 // 合法手をランダムに選ぶボットでフルゲームを回し、決着 or 上限ターンまで破綻なく進むか検証。
 function playRandomGame(seed: number, maxTurns = 400): { turns: number; reason: string } {
@@ -54,5 +56,34 @@ describe("フルゲーム スモーク", () => {
       const r = reduce(state, { type: "end_turn" }, actorId);
       if (r.ok) state = r.state;
     }
+  });
+
+  it("CPU対戦相当: 人間(常にend_turn) vs ボット が完走する", () => {
+    // web の CPU モードと同じ primitives（toPlayerView + bot.decide + reduce）。
+    const bot = getBot("greedy-economy");
+    let { state } = initGame({
+      seed: 5,
+      players: [
+        { id: "you", name: "You", deck: BUILTIN_DECKS[0]!.cardIds },
+        { id: "cpu", name: "CPU", deck: BUILTIN_DECKS[1]!.cardIds },
+      ],
+    });
+    const rng = createRng(123);
+    let guard = 0;
+    while (!state.gameOver && state.turn <= 300 && guard++ < 5000) {
+      const actorId = state.players[state.activePlayerIndex]!.id;
+      if (actorId === "you") {
+        const r = reduce(state, { type: "end_turn" }, "you");
+        expect(r.ok).toBe(true);
+        if (r.ok) state = r.state;
+      } else {
+        const legal = legalCommands(state, "cpu");
+        const cmd = bot.decide({ view: toPlayerView(state, "cpu"), legal, rng });
+        const r = reduce(state, cmd, "cpu");
+        expect(r.ok).toBe(true);
+        if (r.ok) state = r.state;
+      }
+    }
+    expect(state.turn).toBeGreaterThan(1);
   });
 });
