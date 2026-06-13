@@ -50,9 +50,9 @@ export const DEFAULT_RULESET: Ruleset = {
   initialFunds: 10,
   initialHandSize: 4,
   drawPerTurn: 1,
-  winTokenLine: 30,
+  winTokenLine: 20,
   maxSameCard: 3,
-  deckSize: 20,
+  deckSize: 30,
 };
 
 export type Phase = "main" | "ended";

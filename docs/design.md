@@ -166,7 +166,7 @@ type Bot = (view: PlayerView, legal: Command[]) => Command;  // 方策関数
 
 ## 6.5 デッキ構築（デッキビルダー）
 
-`concept.md §3`（デッキ20枚・同名上限）に沿ったデッキを、プレイヤーが自分で組めるようにする。
+`concept.md §3`（デッキ枚数・同名上限。現行は DEFAULT_RULESET で 30枚）に沿ったデッキを、プレイヤーが自分で組めるようにする。
 
 ### 保存はすべて localStorage
 
@@ -177,7 +177,7 @@ type Bot = (view: PlayerView, legal: Command[]) => Command;  // 方策関数
 type Deck = {
   id: string;            // ローカル生成 UUID
   name: string;
-  cardIds: string[];     // core の cardId を列挙（20枚）
+  cardIds: string[];     // core の cardId を列挙（30枚）
   builtin?: boolean;     // default デッキは true（編集不可・複製のみ可）
 };
 
@@ -200,7 +200,7 @@ type DeckExport = {       // export/import で受け渡す文字列の中身
 
 `core` に `validateDeck(deck, ruleset): DeckError[]` を置き、ビルダー・import・対戦開始の 3 箇所で共通利用（疎結合）。
 
-- 合計 **20枚**（`§3`、ただし ruleset で可変）
+- 合計 **30枚**（ruleset で可変。`§3` の原案は20枚）
 - **同名上限 3/4**（`§16`、ruleset で可変）
 - 全 `cardId` が `cards.ts` に存在
 

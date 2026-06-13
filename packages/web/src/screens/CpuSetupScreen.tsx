@@ -15,7 +15,7 @@ export function CpuSetupScreen() {
   const [cpuDeckId, setCpuDeckId] = useState(decks[1]?.id ?? decks[0]?.id ?? "");
   const [botName, setBotName] = useState(BOT_LIST[0]?.name ?? "greedy-economy");
   const [funds, setFunds] = useState(10);
-  const [winLine, setWinLine] = useState(30);
+  const [winLine, setWinLine] = useState(20);
 
   const start = () => {
     const myDeck = decks.find((d) => d.id === myDeckId);
@@ -86,7 +86,7 @@ export function CpuSetupScreen() {
           <label className="flex items-center gap-2">
             勝利ライン
             <select className="rounded bg-slate-900 px-2 py-1" value={winLine} onChange={(e) => setWinLine(Number(e.target.value))}>
-              {[25, 30].map((v) => (
+              {[20, 24, 25, 30].map((v) => (
                 <option key={v} value={v}>{v}</option>
               ))}
             </select>

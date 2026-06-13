@@ -22,7 +22,7 @@ export function LobbyScreen() {
   const me = lobby.seats.find((s) => s.playerId === playerId);
   const allReady = lobby.seats.length === lobby.maxPlayers && lobby.seats.every((s) => s.ready);
   const funds = lobby.ruleset.initialFunds ?? 10;
-  const winLine = lobby.ruleset.winTokenLine ?? 30;
+  const winLine = lobby.ruleset.winTokenLine ?? 20;
 
   const selectDeck = () => {
     const deck = decks.find((d) => d.id === deckId);
@@ -122,7 +122,7 @@ export function LobbyScreen() {
                 value={winLine}
                 onChange={(e) => send({ kind: "configure", ruleset: { winTokenLine: Number(e.target.value) } })}
               >
-                {[25, 30].map((v) => (
+                {[20, 24, 25, 30].map((v) => (
                   <option key={v} value={v}>{v}</option>
                 ))}
               </select>
