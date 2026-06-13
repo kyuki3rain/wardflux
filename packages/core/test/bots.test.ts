@@ -27,6 +27,40 @@ describe("ボットの維持費自滅回避", () => {
     expect(cmd.type).toBe("end_turn");
   });
 
+  it("赤字の死に施設があり解体カードを持つなら、それを撤去する", () => {
+    // コンビニ(維持1)が人0 = 毎ターン-1の持ち出し。手札に解体工事。
+    const dead = placeFacility("konbini", P1, 0, 0, 0);
+    const kaitai = handCard("kaitai");
+    const state = makeState({
+      players: [makePlayer(P1, { funds: 10, hand: [kaitai] }), makePlayer(P2)],
+      facilities: [dead],
+    });
+    const cmd = greedyEconomyBot.decide({
+      view: toPlayerView(state, P1),
+      legal: legalCommands(state, P1),
+      rng: createRng(1),
+    });
+    expect(cmd.type).toBe("play_policy");
+    if (cmd.type !== "play_policy" || cmd.targets.kind !== "facility") return;
+    expect(cmd.targets.facilityId).toBe(dead.instanceId);
+  });
+
+  it("黒字の施設は解体しない", () => {
+    // コンビニ(維持1, 売上2/人)が人2 = +3の黒字。解体しない。
+    const good = placeFacility("konbini", P1, 0, 0, 2);
+    const kaitai = handCard("kaitai");
+    const state = makeState({
+      players: [makePlayer(P1, { funds: 10, hand: [kaitai] }), makePlayer(P2)],
+      facilities: [good],
+    });
+    const cmd = greedyEconomyBot.decide({
+      view: toPlayerView(state, P1),
+      legal: legalCommands(state, P1),
+      rng: createRng(1),
+    });
+    expect(cmd.type).not.toBe("play_policy");
+  });
+
   it("収益で維持費を賄える安全な建設はちゃんと行う", () => {
     // 戸建て(コスト2/維持0/建設時人2/売上1) → 精算で必ずプラス。建てるはず。
     const kodate = handCard("kodate");

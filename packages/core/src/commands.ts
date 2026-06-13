@@ -5,7 +5,8 @@ import type { Pos } from "./types.js";
 // 施策カードの対象指定（§14）
 export type PolicyTargets =
   | { kind: "facility"; facilityId: string } // 単一施設対象（減少/収益停止/維持費増/撤去）
-  | { kind: "move"; fromFacilityId: string; toFacilityId: string }; // 人移動
+  | { kind: "move"; fromFacilityId: string; toFacilityId: string } // 人移動
+  | { kind: "none" }; // 対象なし（ドローなど）
 
 export type Command =
   // §7 建設: 手札の施設カードを空きマスに置く

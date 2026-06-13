@@ -85,6 +85,21 @@ describe("施策効果 §15", () => {
     expect(r.error.code).toBe("facility_not_empty");
   });
 
+  it("ドロー施策: カードを引き、引いた分だけ山札が減る", () => {
+    const draw = handCard("saikaihatsu"); // カードを2枚引く
+    const deck = [handCard("kodate"), handCard("konbini"), handCard("mall")];
+    const state = makeState({
+      players: [makePlayer(P1, { funds: 5, hand: [draw], deck }), makePlayer(P2)],
+    });
+    const r = reduce(state, { type: "play_policy", cardInstanceId: draw.instanceId, targets: { kind: "none" } }, P1);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.state.players[0]!.hand).toHaveLength(2); // 2枚引いた
+    expect(r.state.players[0]!.deck).toHaveLength(1); // 山札 3→1
+    expect(r.state.players[0]!.discard.map((c) => c.cardId)).toEqual(["saikaihatsu"]);
+    expect(r.state.players[0]!.funds).toBe(3); // コスト2
+  });
+
   it("相手施設に対する撤去は不可（owner:self）", () => {
     const enemy = placeFacility("konbini", P2, 0, 0, 0);
     const card = handCard("kaitai");

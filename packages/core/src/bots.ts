@@ -4,8 +4,11 @@ import type { Command } from "./commands.js";
 import { getCard } from "./cards.js";
 import { reduce } from "./engine.js";
 import { type RngState, nextInt } from "./rng.js";
-import { isFacilityCard } from "./types.js";
+import { type FacilityInstance } from "./state.js";
+import { type PolicyEffect, isFacilityCard, isPolicyCard } from "./types.js";
 import { type PlayerView, reconstructStateForActor } from "./view.js";
+import { facilityCardOf } from "./rules/people.js";
+import { hasDisableRevenue, maintenanceModifier } from "./rules/temp_effects.js";
 
 export type BotContext = {
   view: PlayerView;
@@ -58,6 +61,63 @@ function safeBuilds(
   return builds.filter((b) => survivesBuild(view, b));
 }
 
+function policyEffectOf(view: PlayerView, instanceId: string): PolicyEffect | undefined {
+  const card = getCard(handCardId(view, instanceId) ?? "");
+  return card && isPolicyCard(card) ? card.effect : undefined;
+}
+
+// 施設1つの「毎ターン収支」= 収益 − 維持費（一時効果込み）。マイナスなら持ち出し。
+function facilityNet(f: FacilityInstance): number {
+  const card = facilityCardOf(f);
+  const revenue = hasDisableRevenue(f) ? 0 : f.people * card.revenuePerPerson;
+  return revenue - (card.maintenance + maintenanceModifier(f));
+}
+
+type PlayPolicyCmd = Extract<Command, { type: "play_policy" }>;
+
+function playPolicies(legal: Command[]): PlayPolicyCmd[] {
+  return legal.filter((c): c is PlayPolicyCmd => c.type === "play_policy");
+}
+
+// 解体カードを持っているとき、撤去して得する施設（収支マイナスの死に施設）を探す。
+// 人を多く抱えた施設は失う人が惜しいので減点。最も持ち出しが大きい1つを返す。
+function worthwhileDemolish(view: PlayerView, legal: Command[]): PlayPolicyCmd | null {
+  let best: PlayPolicyCmd | null = null;
+  let bestScore = 0;
+  for (const c of playPolicies(legal)) {
+    if (c.targets.kind !== "facility") continue;
+    const targetId = c.targets.facilityId;
+    const effect = policyEffectOf(view, c.cardInstanceId);
+    if (!effect || effect.type !== "remove_facility") continue;
+    const target = view.facilities.find((f) => f.instanceId === targetId);
+    if (!target) continue;
+    const net = facilityNet(target);
+    if (net >= 0) continue; // 黒字 or トントンの施設は壊さない
+    const score = -net - target.people * 0.5; // 持ち出しが大きく、人が少ないほど高評価
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return best;
+}
+
+// 対象なし（ドローなど）の施策を1つ返す。
+function noTargetPolicy(view: PlayerView, legal: Command[]): PlayPolicyCmd | null {
+  for (const c of playPolicies(legal)) {
+    if (c.targets.kind === "none" && policyEffectOf(view, c.cardInstanceId)) return c;
+  }
+  return null;
+}
+
+function isDemolishPolicy(view: PlayerView, c: PlayPolicyCmd): boolean {
+  return policyEffectOf(view, c.cardInstanceId)?.type === "remove_facility";
+}
+
+function myFunds(view: PlayerView): number {
+  return view.players.find((p) => p.id === view.youId)?.funds ?? 0;
+}
+
 // 完全ランダム: 合法手から一様に選ぶ。
 export const randomBot: Bot = {
   name: "random",
@@ -76,6 +136,10 @@ export const greedyEconomyBot: Bot = {
     const biz = acts.find((c) => c.type === "use_business_effect");
     if (biz) return biz;
 
+    // 赤字の死に施設があれば解体して経済を立て直す
+    const demolish = worthwhileDemolish(view, legal);
+    if (demolish) return demolish;
+
     // 維持費で自滅する建設は除外（次の精算で破綻しないものだけ）
     const builds = safeBuilds(
       view,
@@ -90,6 +154,12 @@ export const greedyEconomyBot: Bot = {
         .sort((a, b) => a.cost - b.cost);
       const pick = sorted[0]!;
       if (me.funds - pick.cost >= 2) return pick.c;
+    }
+
+    // 資金に余裕があればドロー施策でデッキを回す
+    const draw = noTargetPolicy(view, legal);
+    if (draw && myFunds(view) - cardCost(handCardId(view, draw.cardInstanceId) ?? "") >= 3) {
+      return draw;
     }
     return endTurn(legal);
   },
@@ -122,7 +192,12 @@ export const aggressiveStealBot: Bot = {
       if (me.funds - cardCost(handCardId(view, best.c.cardInstanceId) ?? "") >= 0) return best.c;
     }
 
-    const policy = acts.find((c) => c.type === "play_policy");
+    // 赤字の死に施設は解体（無差別な自施設撤去は避ける）
+    const demolish = worthwhileDemolish(view, legal);
+    if (demolish) return demolish;
+
+    // 解体以外の妨害施策をたまに使う（自施設を壊す解体は除外）
+    const policy = acts.find((c) => c.type === "play_policy" && !isDemolishPolicy(view, c));
     if (policy && nextInt(rng, 2) === 0) return policy;
 
     const biz = acts.find((c) => c.type === "use_business_effect");

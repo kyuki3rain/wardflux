@@ -58,7 +58,9 @@ export type PolicyEffect =
       owner: "self";
       // 建て替え準備(§20.12): 人0の施設のみ撤去可
       requiresEmpty?: boolean;
-    };
+    }
+  // カードを引く（対象なし）
+  | { type: "draw_cards"; amount: number };
 
 // §19.4 施設カード（盤面に建つカード）
 export type FacilityCard = {

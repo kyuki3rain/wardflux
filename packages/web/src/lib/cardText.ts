@@ -44,6 +44,8 @@ export function policyEffectText(effect: PolicyEffect): string {
       return `施設1つの維持費を${durationText(effect.duration)} +${effect.amount}`;
     case "remove_facility":
       return effect.requiresEmpty ? "人0の自分施設1つを撤去" : "自分の施設1つを撤去";
+    case "draw_cards":
+      return `カードを${effect.amount}枚引く`;
   }
 }
 

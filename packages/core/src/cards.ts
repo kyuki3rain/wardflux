@@ -145,6 +145,14 @@ const kaitai: PolicyCard = {
   effect: { type: "remove_facility", target: "single_facility", owner: "self" },
 };
 
+const saikaihatsu: PolicyCard = {
+  id: "saikaihatsu",
+  name: "再開発計画",
+  type: "policy",
+  cost: 2,
+  effect: { type: "draw_cards", amount: 2 },
+};
+
 const tatekae: PolicyCard = {
   id: "tatekae",
   name: "建て替え準備",
@@ -170,6 +178,7 @@ export const ALL_CARDS: Card[] = [
   dousen,
   eigyoteishi,
   chika,
+  saikaihatsu,
   kaitai,
   tatekae,
 ];

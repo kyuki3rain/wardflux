@@ -118,3 +118,11 @@ export function isFacilityHandCard(view: PlayerView, instanceId: string): boolea
   const card = cardId ? getCard(cardId) : undefined;
   return !!card && card.type === "facility";
 }
+
+// 対象を取らない施策（ドローなど）。クリックで即時プレイする。
+export function isNoTargetPolicy(view: PlayerView, instanceId: string): boolean {
+  const cardId = view.yourHand.find((c) => c.instanceId === instanceId)?.cardId;
+  if (!cardId) return false;
+  const card = getCard(cardId);
+  return !!card && isPolicyCard(card) && card.effect.type === "draw_cards";
+}

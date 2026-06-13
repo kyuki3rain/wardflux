@@ -13,6 +13,7 @@ import {
 import type { OwnerFilter, PolicyEffect } from "../types.js";
 import { freeCapacity, movePeople, removePeople } from "../rules/people.js";
 import { applyTemporaryEffect } from "../rules/temp_effects.js";
+import { drawCards } from "../phases.js";
 
 function matchesOwner(
   facility: FacilityInstance,
@@ -106,6 +107,13 @@ export function applyPolicy(
         return err("facility_not_empty", "人0の施設のみ撤去できます");
       }
       removeFacility(state, target, events);
+      return null;
+    }
+
+    case "draw_cards": {
+      const player = state.players.find((p) => p.id === actorId);
+      if (!player) return err("invalid_target", "プレイヤーが見つかりません");
+      drawCards(state, player, effect.amount, events);
       return null;
     }
   }

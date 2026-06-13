@@ -12,6 +12,7 @@ import {
   businessMoveTos,
   isFacilityHandCard,
   isMovePolicy,
+  isNoTargetPolicy,
   isMyTurn,
   myLegalCommands,
   policyMoveFroms,
@@ -169,6 +170,15 @@ export function GameScreen() {
                   disabled={!myTurn || !playable.has(ci.instanceId)}
                   onClick={() => {
                     if (!myTurn) return;
+                    // 対象なし施策（ドロー等）はクリックで即時プレイ
+                    if (isNoTargetPolicy(view, ci.instanceId)) {
+                      dispatch({
+                        type: "play_policy",
+                        cardInstanceId: ci.instanceId,
+                        targets: { kind: "none" },
+                      });
+                      return;
+                    }
                     setSel((cur) =>
                       cur.kind === "hand" && cur.instanceId === ci.instanceId
                         ? { kind: "none" }

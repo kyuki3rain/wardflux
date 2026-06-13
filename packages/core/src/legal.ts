@@ -111,6 +111,9 @@ function policyTargetCandidates(
         out.push({ kind: "facility", facilityId: f.instanceId });
       }
       break;
+    case "draw_cards":
+      out.push({ kind: "none" });
+      break;
     case "move_people_between_own_adjacent_facilities":
       for (const from of state.facilities) {
         if (from.ownerId !== actorId || from.people <= 0) continue;
