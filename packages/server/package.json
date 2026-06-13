@@ -1,0 +1,21 @@
+{
+  "name": "@wardflux/server",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    "./protocol": "./src/protocol.ts"
+  },
+  "scripts": {
+    "dev": "partykit dev",
+    "deploy": "partykit deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wardflux/core": "workspace:*"
+  },
+  "devDependencies": {
+    "partykit": "^0.0.111",
+    "typescript": "^5.6.0"
+  }
+}
