@@ -2,9 +2,10 @@
 // すべて PlayerView + legalCommands から決定する（実プレイと同じ情報・同じ合法手判定）。
 import type { Command } from "./commands.js";
 import { getCard } from "./cards.js";
+import { reduce } from "./engine.js";
 import { type RngState, nextInt } from "./rng.js";
 import { isFacilityCard } from "./types.js";
-import type { PlayerView } from "./view.js";
+import { type PlayerView, reconstructStateForActor } from "./view.js";
 
 export type BotContext = {
   view: PlayerView;
@@ -36,6 +37,27 @@ function attractOf(view: PlayerView, instanceId: string): number {
   return card && isFacilityCard(card) ? card.attractiveness : 0;
 }
 
+// この建設を行ってから自分のターンを終えても、維持費精算で破綻しないか。
+// 実エンジンで「建設 → end_turn」を1手先までシミュレーションして判定する
+// （維持費・収益・建設時収益/奪取をすべて正確に反映。次の1精算だけを見る）。
+function survivesBuild(view: PlayerView, build: Command): boolean {
+  const sim = reconstructStateForActor(view);
+  const built = reduce(sim, build, view.youId);
+  if (!built.ok) return true; // シミュレートできなければ妨げない
+  const ended = reduce(built.state, { type: "end_turn" }, view.youId);
+  if (!ended.ok) return true;
+  const me = ended.state.players.find((p) => p.id === view.youId);
+  return !me || me.funds >= 0;
+}
+
+// 破綻しない建設だけに絞る（維持費自滅の回避）。
+function safeBuilds(
+  view: PlayerView,
+  builds: Extract<Command, { type: "build_facility" }>[],
+): Extract<Command, { type: "build_facility" }>[] {
+  return builds.filter((b) => survivesBuild(view, b));
+}
+
 // 完全ランダム: 合法手から一様に選ぶ。
 export const randomBot: Bot = {
   name: "random",
@@ -54,8 +76,12 @@ export const greedyEconomyBot: Bot = {
     const biz = acts.find((c) => c.type === "use_business_effect");
     if (biz) return biz;
 
-    const builds = acts.filter(
-      (c): c is Extract<Command, { type: "build_facility" }> => c.type === "build_facility",
+    // 維持費で自滅する建設は除外（次の精算で破綻しないものだけ）
+    const builds = safeBuilds(
+      view,
+      acts.filter(
+        (c): c is Extract<Command, { type: "build_facility" }> => c.type === "build_facility",
+      ),
     );
     const me = view.players.find((p) => p.id === view.youId)!;
     if (builds.length > 0) {
@@ -77,8 +103,12 @@ export const aggressiveStealBot: Bot = {
     const acts = actions(legal);
     if (acts.length === 0) return endTurn(legal);
 
-    const builds = acts.filter(
-      (c): c is Extract<Command, { type: "build_facility" }> => c.type === "build_facility",
+    // 維持費で自滅する建設は除外
+    const builds = safeBuilds(
+      view,
+      acts.filter(
+        (c): c is Extract<Command, { type: "build_facility" }> => c.type === "build_facility",
+      ),
     );
     const commercialBuilds = builds.filter((c) => {
       const card = getCard(handCardId(view, c.cardInstanceId) ?? "");
