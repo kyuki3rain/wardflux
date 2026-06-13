@@ -27,6 +27,36 @@ describe("ボットの維持費自滅回避", () => {
     expect(cmd.type).toBe("end_turn");
   });
 
+  it("奪う相手がいない場所に商業を素出ししない（人が乗らない建設はしない）", () => {
+    // 盤面に人がどこにもない → コンビニを建てても人0。建てずにターン終了。
+    const konbini = handCard("konbini");
+    const state = makeState({
+      players: [makePlayer(P1, { funds: 10, hand: [konbini] }), makePlayer(P2)],
+    });
+    const cmd = greedyEconomyBot.decide({
+      view: toPlayerView(state, P1),
+      legal: legalCommands(state, P1),
+      rng: createRng(1),
+    });
+    expect(cmd.type).toBe("end_turn");
+  });
+
+  it("住宅の隣など、人を奪える場所には商業を建てる", () => {
+    // 人2の戸建ての隣にコンビニ(魅力2)を建てれば2人奪える → 生産的なので建てる。
+    const home = placeFacility("kodate", P1, 0, 0, 2);
+    const konbini = handCard("konbini");
+    const state = makeState({
+      players: [makePlayer(P1, { funds: 10, hand: [konbini] }), makePlayer(P2)],
+      facilities: [home],
+    });
+    const cmd = greedyEconomyBot.decide({
+      view: toPlayerView(state, P1),
+      legal: legalCommands(state, P1),
+      rng: createRng(1),
+    });
+    expect(cmd.type).toBe("build_facility");
+  });
+
   it("赤字の死に施設があり解体カードを持つなら、それを撤去する", () => {
     // コンビニ(維持1)が人0 = 毎ターン-1の持ち出し。手札に解体工事。
     const dead = placeFacility("konbini", P1, 0, 0, 0);

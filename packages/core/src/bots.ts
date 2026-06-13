@@ -40,25 +40,31 @@ function attractOf(view: PlayerView, instanceId: string): number {
   return card && isFacilityCard(card) ? card.attractiveness : 0;
 }
 
-// この建設を行ってから自分のターンを終えても、維持費精算で破綻しないか。
-// 実エンジンで「建設 → end_turn」を1手先までシミュレーションして判定する
-// （維持費・収益・建設時収益/奪取をすべて正確に反映。次の1精算だけを見る）。
-function survivesBuild(view: PlayerView, build: Command): boolean {
+type BuildCmd = Extract<Command, { type: "build_facility" }>;
+
+// その建設が「良い建設」か。実エンジンで1手シミュレートして2点を確認する:
+//   1. 生産的か: 建てた施設に人が1以上乗る
+//      （住宅は建設時に人が出る／商業は奪える相手がいる時だけ人が乗る → 人だかりのない
+//        場所への商業の素出しを弾く）
+//   2. 自滅しないか: そのままターンを終えても維持費精算で破綻しない
+function isGoodBuild(view: PlayerView, build: BuildCmd): boolean {
   const sim = reconstructStateForActor(view);
   const built = reduce(sim, build, view.youId);
-  if (!built.ok) return true; // シミュレートできなければ妨げない
+  if (!built.ok) return false;
+
+  const placed = built.state.facilities.find(
+    (f) => f.pos.x === build.pos.x && f.pos.y === build.pos.y,
+  );
+  if (!placed || placed.people <= 0) return false; // 人が乗らない建設はしない
+
   const ended = reduce(built.state, { type: "end_turn" }, view.youId);
-  if (!ended.ok) return true;
+  if (!ended.ok) return true; // 精算をシミュレートできなければ、生産的なので許可
   const me = ended.state.players.find((p) => p.id === view.youId);
-  return !me || me.funds >= 0;
+  return !me || me.funds >= 0; // 次の精算で破綻しない
 }
 
-// 破綻しない建設だけに絞る（維持費自滅の回避）。
-function safeBuilds(
-  view: PlayerView,
-  builds: Extract<Command, { type: "build_facility" }>[],
-): Extract<Command, { type: "build_facility" }>[] {
-  return builds.filter((b) => survivesBuild(view, b));
+function buildCommands(acts: Command[]): BuildCmd[] {
+  return acts.filter((c): c is BuildCmd => c.type === "build_facility");
 }
 
 function policyEffectOf(view: PlayerView, instanceId: string): PolicyEffect | undefined {
@@ -140,25 +146,21 @@ export const greedyEconomyBot: Bot = {
     const demolish = worthwhileDemolish(view, legal);
     if (demolish) return demolish;
 
-    // 維持費で自滅する建設は除外（次の精算で破綻しないものだけ）
-    const builds = safeBuilds(
-      view,
-      acts.filter(
-        (c): c is Extract<Command, { type: "build_facility" }> => c.type === "build_facility",
-      ),
+    // 人が乗り、かつ自滅しない建設のうち、安いものから建てる（資金は2残す）
+    const funds = myFunds(view);
+    const sortedBuilds = buildCommands(acts).sort(
+      (a, b) =>
+        cardCost(handCardId(view, a.cardInstanceId) ?? "") -
+        cardCost(handCardId(view, b.cardInstanceId) ?? ""),
     );
-    const me = view.players.find((p) => p.id === view.youId)!;
-    if (builds.length > 0) {
-      const sorted = builds
-        .map((c) => ({ c, cost: cardCost(handCardId(view, c.cardInstanceId) ?? "") }))
-        .sort((a, b) => a.cost - b.cost);
-      const pick = sorted[0]!;
-      if (me.funds - pick.cost >= 2) return pick.c;
-    }
+    const build = sortedBuilds.find(
+      (b) => funds - cardCost(handCardId(view, b.cardInstanceId) ?? "") >= 2 && isGoodBuild(view, b),
+    );
+    if (build) return build;
 
     // 資金に余裕があればドロー施策でデッキを回す
     const draw = noTargetPolicy(view, legal);
-    if (draw && myFunds(view) - cardCost(handCardId(view, draw.cardInstanceId) ?? "") >= 3) {
+    if (draw && funds - cardCost(handCardId(view, draw.cardInstanceId) ?? "") >= 3) {
       return draw;
     }
     return endTurn(legal);
@@ -173,24 +175,20 @@ export const aggressiveStealBot: Bot = {
     const acts = actions(legal);
     if (acts.length === 0) return endTurn(legal);
 
-    // 維持費で自滅する建設は除外
-    const builds = safeBuilds(
-      view,
-      acts.filter(
-        (c): c is Extract<Command, { type: "build_facility" }> => c.type === "build_facility",
-      ),
+    const funds = myFunds(view);
+    const builds = buildCommands(acts);
+
+    // 奪える相手がいる商業を、魅力度が高い順に建てる（人が乗らない素出しは isGoodBuild が弾く）
+    const commercialBuilds = builds
+      .filter((c) => {
+        const card = getCard(handCardId(view, c.cardInstanceId) ?? "");
+        return card && isFacilityCard(card) && card.canStealOnBuild;
+      })
+      .sort((a, b) => attractOf(view, b.cardInstanceId) - attractOf(view, a.cardInstanceId));
+    const commercial = commercialBuilds.find(
+      (b) => funds - cardCost(handCardId(view, b.cardInstanceId) ?? "") >= 0 && isGoodBuild(view, b),
     );
-    const commercialBuilds = builds.filter((c) => {
-      const card = getCard(handCardId(view, c.cardInstanceId) ?? "");
-      return card && isFacilityCard(card) && card.canStealOnBuild;
-    });
-    if (commercialBuilds.length > 0) {
-      const best = commercialBuilds
-        .map((c) => ({ c, attract: attractOf(view, c.cardInstanceId) }))
-        .sort((a, b) => b.attract - a.attract)[0]!;
-      const me = view.players.find((p) => p.id === view.youId)!;
-      if (me.funds - cardCost(handCardId(view, best.c.cardInstanceId) ?? "") >= 0) return best.c;
-    }
+    if (commercial) return commercial;
 
     // 赤字の死に施設は解体（無差別な自施設撤去は避ける）
     const demolish = worthwhileDemolish(view, legal);
@@ -203,7 +201,9 @@ export const aggressiveStealBot: Bot = {
     const biz = acts.find((c) => c.type === "use_business_effect");
     if (biz) return biz;
 
-    if (builds.length > 0) return builds[0]!;
+    // それ以外は人が乗る建設（住宅で人を供給）
+    const good = builds.find((b) => isGoodBuild(view, b));
+    if (good) return good;
     return endTurn(legal);
   },
 };
